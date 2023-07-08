@@ -16,10 +16,11 @@ Setup is first time process when you are configuring project first time.
 - If you are asked to change any think in default.env then create new .env file and
   add those new env variables to override from default.env. Else start with next steps
 
-- Create .env.learninglocker file
+- Create .env.learninglocker and .env.xapi file
 
 ```bash
 cp .env.learninglocker.example .env.learninglocker
+cp .env.xapi.example .env.xapi
 ```
 
 - Build project containers
