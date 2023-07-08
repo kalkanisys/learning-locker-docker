@@ -1,0 +1,75 @@
+# https://taskfile.dev
+
+version: "3"
+
+vars:
+  DOCKER_COMPOSE_FILE:
+  RUN_ARGS: >-
+    ${RUN_ARGS:-}
+  EXEC_ARGS: >-
+    ${EXEC_ARGS:-}
+  MAIN_SERVICE: learninglocker
+
+dotenv:
+  - ".env.{{.ENV}}"
+  - "{{.ENV}}.env"
+  - ".env"
+  - "default.env"
+
+tasks:
+  default:
+    desc: Default show running dev containers
+    cmds:
+      - docker compose {{.DOCKER_COMPOSE_FILE | default "-f docker-compose.dev.yml"}} {{.CLI_ARGS | default "ps"}}
+
+  build:
+    desc: Build containers
+    cmds:
+      - task: default
+        vars:
+          CLI_ARGS: build {{.CLI_ARGS}}_INITDB
+
+  up:
+    aliases: [start]
+    desc: Start containers
+    cmds:
+      - task: default
+        vars:
+          CLI_ARGS: up -d {{.CLI_ARGS}}
+
+  down:
+    aliases: [stop]
+    desc: Stop containers
+    cmds:
+      - task: default
+        vars:
+          CLI_ARGS: down {{.CLI_ARGS}}
+
+  restart:
+    desc: Restart containers
+    cmds:
+      - task: default
+        vars:
+          CLI_ARGS: restart {{.CLI_ARGS}}
+
+  clean:
+    desc: Remove all containers including all DATA
+    cmds:
+      - task: default
+        vars:
+          CLI_ARGS: down -v {{.CLI_ARGS}}
+
+  run:
+    desc: Run command in main container
+    cmds:
+      - task: default
+        vars:
+          CLI_ARGS: exec {{.EXEC_ARGS}} {{.MAIN_SERVICE}} {{.CLI_ARGS}}
+
+  shell:
+    aliases: [ssh]
+    desc: Run shell in main container
+    cmds:
+      - task: default
+        vars:
+          CLI_ARGS: exec {{.EXEC_ARGS}} {{.MAIN_SERVICE}} bash {{.CLI_ARGS}}

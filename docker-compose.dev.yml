@@ -1,0 +1,44 @@
+version: "3.9"
+
+volumes:
+  logs:
+  storage:
+  mongodb:
+  redis-data:
+
+services:
+  learninglocker:
+    image: rkalkani/learning-locker-v2:latest
+    ports:
+      - ${LL_PORT:-3030}:80
+    env_file:
+      - ${LEARNING_LOCKER_ENV_FILE:-.env.learninglocker}
+    volumes:
+      - ${LEARNING_LOCKER_ENV_FILE:-.env.learninglocker}:/app/.env:ro
+      - logs:/app/logs
+      - storage:/app/storage
+
+  xapi-service:
+    image: learninglocker/xapi-service:latest
+    ports:
+      - ${XAPI_SERVICE_PORT:-8085}:8080
+    env_file:
+      - ${LEARNING_LOCKER_ENV_FILE:-.env.xapi}
+    volumes:
+      - ${LEARNING_LOCKER_ENV_FILE:-.env.xapi}:/usr/src/app/.env:ro
+
+  mongodb:
+    image: "mongo:4.4"
+    # command: --bind_ip_all --replSet rs0
+    ports:
+      - 27017
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME
+      - MONGO_INITDB_ROOT_PASSWORD
+    volumes:
+      - mongodb:/data/db
+
+  redis:
+    image: "redis:5-alpine"
+    volumes:
+      - redis-data:/data
