@@ -1,0 +1,141 @@
+# Default server definition
+
+map $http_x_forwarded_proto $x_forwarded_proto {
+    default $http_x_forwarded_proto;
+    '' $scheme;
+}
+
+map $http_x_forwarded_port $x_forwarded_port {
+    default $http_x_forwarded_port;
+    '' $server_port;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name _;
+    server_tokens off;
+
+    # Max request size
+    client_max_body_size 20M;
+    large_client_header_buffers 4 256k;
+
+    root /app/ui/dist/public;
+
+    add_header X-Frame-Options              "SAMEORIGIN";
+    add_header X-XSS-Protection             "1; mode=block";
+    add_header X-Content-Type-Options       "nosniff";
+
+    # xAPI endpoints
+    location ~* ^/data/xAPI(.*)$ {
+      # Preflighted requests
+      if ($request_method = OPTIONS ) {
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header "Access-Control-Allow-Methods" "GET, POST, OPTIONS, HEAD, PUT, DELETE";
+        add_header "Access-Control-Allow-Headers" "Authorization, Origin, X-Requested-With, Content-Type, Accept";
+
+        add_header 'Access-Control-Max-Age' 1728000;
+        add_header 'Content-Type' 'text/plain; charset=utf-8';
+        add_header 'Content-Length' 0;
+
+        return 204;
+      }
+
+      proxy_pass ${XAPI_SERVER}/data/xAPI$1$is_args$args;
+      proxy_cache_bypass $http_upgrade;
+      proxy_http_version 1.1;
+
+      # Proxy headers
+      proxy_set_header Upgrade           $http_upgrade;
+      proxy_set_header Connection        "upgrade";
+      proxy_set_header Host              $host;
+      # proxy_set_header X-Real-IP         $remote_addr;
+      proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $x_forwarded_proto;
+      proxy_set_header X-Forwarded-Host  $host;
+      # proxy_set_header X-Forwarded-Port  443;
+      # hard code because upper proxy not retuning correct forwarded port
+      proxy_set_header X-Forwarded-Port  $x_forwarded_port;
+
+      # Simple requests
+      add_header 'Access-Control-Allow-Origin' '*' always;
+    }
+
+    # API endpoints
+    location = /api {
+      rewrite /api / break;
+      proxy_redirect off;
+      proxy_pass http://127.0.0.1:${API_PORT};
+    }
+
+    location ~* ^/api(.*)$ {
+      proxy_pass http://127.0.0.1:${API_PORT}$1$is_args$args;
+      proxy_cache_bypass $http_upgrade;
+      proxy_http_version 1.1;
+
+      # Proxy headers
+      proxy_set_header Upgrade           $http_upgrade;
+      proxy_set_header Connection        "upgrade";
+      proxy_set_header Host              $host;
+      # proxy_set_header X-Real-IP         $remote_addr;
+      proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $x_forwarded_proto;
+      proxy_set_header X-Forwarded-Host  $host;
+      # proxy_set_header X-Forwarded-Port  443;
+      # hard code because upper proxy not retuning correct forwarded port
+      proxy_set_header X-Forwarded-Port  $x_forwarded_port;
+    }
+
+    # All other traffic directed to statics or Node server
+    location / {
+      try_files $uri @node_server;
+    }
+
+    # Node UI server
+    location @node_server {
+      proxy_pass http://localhost:${UI_PORT};
+      proxy_cache_bypass $http_upgrade;
+      proxy_http_version 1.1;
+
+      # Proxy headers
+      proxy_set_header Upgrade           $http_upgrade;
+      proxy_set_header Connection        "upgrade";
+      proxy_set_header Host              $host;
+      # proxy_set_header X-Real-IP         $remote_addr;
+      proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $x_forwarded_proto;
+      proxy_set_header X-Forwarded-Host  $host;
+      # proxy_set_header X-Forwarded-Port  443;
+      # hard code because upper proxy not retuning correct forwarded port
+      proxy_set_header X-Forwarded-Port  $x_forwarded_port;
+    }
+
+    # Load configuration files for the default server block.
+    error_page 404 /404.html;
+    location = /40x.html {
+      root /usr/share/nginx/html;
+    }
+
+    error_page 500 502 503 504 /50x.html;
+    location = /50x.html {
+      root /usr/share/nginx/html;
+    }
+
+    # We don't need .ht files with nginx.
+    location ~ /\.ht {
+      deny all;
+    }
+
+    # Deny access to . files, for security
+    location ~* /\.(?!well-known\/) {
+      log_not_found off;
+      deny all;
+    }
+
+    location ~* (?:#.*#|\.(?:bak|conf|dist|fla|in[ci]|log|orig|psd|sh|sql|sw[op])|~)$ {
+      deny all;
+    }
+
+    location = /favicon.ico { access_log off; log_not_found off; }
+    location = /robots.txt  { access_log off; log_not_found off; }
+}
